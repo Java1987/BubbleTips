@@ -11,11 +11,13 @@ class BubbleTipsTextView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : TextView(context, attrs, defStyleAttr) {
 
-    var arrowDis2Edge: Int = 0
-    var anchorViewId: Int = 0
-    var anchorView: View? = null
-    var spacing: Int = 0
-    var arrowPos: ArrowPos = ArrowPos.TC
+    private var attachedToWindow = false
+
+    private var arrowDis2Edge: Int = 0
+    private var anchorViewId: Int = 0
+    private var anchorView: View? = null
+    private var spacing: Int = 0
+    private var arrowPos: ArrowPos = ArrowPos.TC
 
     init {
         val a = context.obtainStyledAttributes(attrs, R.styleable.BubbleTipsTextView, defStyleAttr, 0)
@@ -26,7 +28,7 @@ class BubbleTipsTextView @JvmOverloads constructor(
 
         val pos = a.getInt(R.styleable.BubbleTipsTextView_arrowPos, 0)
         arrowPos = findArrowPos(pos)
-        setBackgroundResource(arrowPos.background)
+        setArrowPos(arrowPos)
 
         a.recycle()
 
@@ -41,14 +43,15 @@ class BubbleTipsTextView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (anchorViewId != 0) {
-            val parentView = parent as View?
-            anchorView = parentView?.findViewById(anchorViewId)
-            if (anchorView == null) {
-                throw RuntimeException("Can't find anchor view")
-            }
-        }
+        attachedToWindow = true
+        setAnchorViewId(anchorViewId)
     }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        attachedToWindow = false
+    }
+
 
     private fun findArrowPos(id: Int): ArrowPos {
         ArrowPos.values().forEach {
@@ -90,15 +93,15 @@ class BubbleTipsTextView @JvmOverloads constructor(
                         lp?.leftMargin = centerX() - this@BubbleTipsTextView.width + arrowDis2Edge
                     }
                     ArrowPos.BL -> {
-                        lp?.topMargin = top - spacing
+                        lp?.topMargin = top - spacing - this@BubbleTipsTextView.height
                         lp?.leftMargin = centerX() - arrowDis2Edge
                     }
                     ArrowPos.BC -> {
-                        lp?.topMargin = top - spacing
+                        lp?.topMargin = top - spacing - this@BubbleTipsTextView.height
                         lp?.leftMargin = centerX() - (this@BubbleTipsTextView.width / 2)
                     }
                     ArrowPos.BR -> {
-                        lp?.topMargin = top - spacing
+                        lp?.topMargin = top - spacing - this@BubbleTipsTextView.height
                         lp?.leftMargin = centerX() - this@BubbleTipsTextView.width + arrowDis2Edge
                     }
                 }
@@ -117,7 +120,36 @@ class BubbleTipsTextView @JvmOverloads constructor(
         }
     }
 
+    fun setAnchorViewId(id: Int) {
+        anchorViewId = id
+        if (anchorViewId != 0 && attachedToWindow) {
+            val parentView = parent as View?
+            anchorView = parentView?.findViewById(anchorViewId)
+            if (anchorView == null) {
+                throw RuntimeException("Can't find anchor view")
+            }
+            invalidate()
+        }
+    }
+
+    fun setAnchorView(v: View) {
+        anchorView = v
+        invalidate()
+    }
+
+    fun setArrowPos(pos: ArrowPos) {
+        arrowPos = pos
+        setBackgroundResource(arrowPos.background)
+        invalidate()
+    }
+
+    fun setSpacing(s: Int) {
+        spacing = s
+        invalidate()
+    }
+
     fun show() {
+        hide()
         onPreDraw {
             calcPos()
             ViewUtils.setVisibility(this, View.VISIBLE)
